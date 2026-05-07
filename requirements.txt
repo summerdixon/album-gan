@@ -1,0 +1,12 @@
+# PyTorch & Neural Networks
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Data Processing
+pandas>=2.0.0
+Pillow>=9.0.0
+requests>=2.28.0
+
+# Audio Processing & Embeddings
+laion_clap
+librosa>=0.10.0
