@@ -32,12 +32,10 @@ def train():
     csv_path = "../data/cleaned_dataset.csv"
     img_dir = "../data/images"
     audio_emb_path = "../data/embeddings/audio_embeddings.pt"
-    text_emb_path = "../data/embeddings/text_embeddings.pt"
     batch_size = 32
 
-    # Load embeddings dicts for sampling
+    # Load the already-stacked conditioning embeddings for sampling
     all_audio_embeddings = torch.load(audio_emb_path, map_location="cpu")
-    all_text_embeddings = torch.load(text_emb_path, map_location="cpu")
 
     def load_embedding(embedding_dict, track_id):
         if track_id in embedding_dict:
@@ -52,15 +50,11 @@ def train():
 
     def combine_embeddings(track_id):
         audio_embedding = load_embedding(all_audio_embeddings, track_id)
-        text_embedding = load_embedding(all_text_embeddings, track_id)
 
-        if audio_embedding is None or text_embedding is None:
+        if audio_embedding is None:
             return None
 
-        audio_embedding = normalize_embedding(audio_embedding)
-        text_embedding = normalize_embedding(text_embedding)
-
-        return torch.stack([audio_embedding, text_embedding])
+        return normalize_embedding(audio_embedding)
 
     # Samples output directory
     samples_dir = "../samples"
@@ -88,7 +82,6 @@ def train():
         csv_path="../data/train_dataset.csv",
         img_dir=img_dir,
         audio_emb_path=audio_emb_path,
-        text_emb_path=text_emb_path,
         batch_size=batch_size
     )
 
@@ -96,7 +89,6 @@ def train():
         csv_path="../data/test_dataset.csv",
         img_dir=img_dir,
         audio_emb_path=audio_emb_path,
-        text_emb_path=text_emb_path,
         batch_size=batch_size
     )   
 
@@ -209,7 +201,7 @@ def train():
                         sample_pairs.append((tid, emb))
 
                 if not sample_pairs:
-                    raise RuntimeError("No matching audio/text embeddings found for the test samples.")
+                    raise RuntimeError("No matching conditioning embeddings found for the test samples.")
 
                 sample_ids = [tid for tid, _ in sample_pairs]
                 emb_list = [emb for _, emb in sample_pairs]

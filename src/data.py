@@ -7,11 +7,10 @@ import torchvision.transforms as transforms
 from utils import normalize_embedding
 
 class AlbumGANDataset(Dataset):
-    def __init__(self, csv_file, img_dir, audio_embeddings_file, text_embeddings_file):
+    def __init__(self, csv_file, img_dir, audio_embeddings_file):
         self.data_frame = pd.read_csv(csv_file)
         self.img_dir = img_dir
         self.audio_embeddings = torch.load(audio_embeddings_file, map_location="cpu")
-        self.text_embeddings = torch.load(text_embeddings_file, map_location="cpu")
         
         # generator outputs images between -1 and 1, so we normalize our real images to match
         self.transform = transforms.Compose([
@@ -29,17 +28,13 @@ class AlbumGANDataset(Dataset):
         image = Image.open(img_path).convert("RGB")
         image = self.transform(image)
         audio_embedding = normalize_embedding(self.audio_embeddings[track_id])
-        text_embedding = normalize_embedding(self.text_embeddings[track_id])
+        return image, audio_embedding
 
-        combined_embedding = torch.stack([audio_embedding, text_embedding], dim=0)
-        return image, combined_embedding
-
-def get_dataloader(csv_path, img_dir, audio_emb_path, text_emb_path, batch_size=32, num_workers=2):
+def get_dataloader(csv_path, img_dir, audio_emb_path, batch_size=32, num_workers=2):
     dataset = AlbumGANDataset(
         csv_file=csv_path,
         img_dir=img_dir,
         audio_embeddings_file=audio_emb_path,
-        text_embeddings_file=text_emb_path,
     )
     
     dataloader = DataLoader(
@@ -57,7 +52,6 @@ if __name__ == "__main__":
         csv_path="../data/cleaned_dataset.csv", 
         img_dir="../data/images", 
         audio_emb_path="../data/embeddings/audio_embeddings.pt",
-        text_emb_path="../data/embeddings/text_embeddings.pt",
     )
     
     # test getting one batch to prove it works

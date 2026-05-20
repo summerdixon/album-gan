@@ -10,9 +10,6 @@ def normalize_embedding(emb: "torch.Tensor | list | tuple") -> torch.Tensor:
 
     emb = emb.squeeze()
 
-    if emb.dim() > 1:
-        emb = emb.view(-1)
-
     return emb
 
 
