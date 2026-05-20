@@ -8,8 +8,9 @@ import os
 from data import get_dataloader
 from torchvision.utils import make_grid, save_image
 from model import Generator, Discriminator
+from utils import normalize_embedding, resize_image_tensor
 
-def main():
+def train():
 
     # Configuration
     epochs = 80
@@ -30,15 +31,41 @@ def main():
     # Data paths
     csv_path = "../data/cleaned_dataset.csv"
     img_dir = "../data/images"
-    emb_path = "../data/embeddings/audio_embeddings.pt"
+    audio_emb_path = "../data/embeddings/audio_embeddings.pt"
+    text_emb_path = "../data/embeddings/text_embeddings.pt"
     batch_size = 32
 
-    # Load embeddings dict for sampling
-    all_embeddings = torch.load(emb_path)
+    # Load embeddings dicts for sampling
+    all_audio_embeddings = torch.load(audio_emb_path, map_location="cpu")
+    all_text_embeddings = torch.load(text_emb_path, map_location="cpu")
+
+    def load_embedding(embedding_dict, track_id):
+        if track_id in embedding_dict:
+            return embedding_dict[track_id]
+
+        try:
+            numeric_track_id = int(track_id)
+        except ValueError:
+            return None
+
+        return embedding_dict.get(numeric_track_id)
+
+    def combine_embeddings(track_id):
+        audio_embedding = load_embedding(all_audio_embeddings, track_id)
+        text_embedding = load_embedding(all_text_embeddings, track_id)
+
+        if audio_embedding is None or text_embedding is None:
+            return None
+
+        audio_embedding = normalize_embedding(audio_embedding)
+        text_embedding = normalize_embedding(text_embedding)
+
+        return torch.stack([audio_embedding, text_embedding])
 
     # Samples output directory
     samples_dir = "../samples"
     os.makedirs(samples_dir, exist_ok=True)
+    sample_image_size = (256, 256)
 
     # Load and split the dataset
     data_frame = pd.read_csv(csv_path)
@@ -60,14 +87,16 @@ def main():
     train_loader = get_dataloader(
         csv_path="../data/train_dataset.csv",
         img_dir=img_dir,
-        emb_path=emb_path,
+        audio_emb_path=audio_emb_path,
+        text_emb_path=text_emb_path,
         batch_size=batch_size
     )
 
     test_loader = get_dataloader(
         csv_path="../data/test_dataset.csv",
         img_dir=img_dir,
-        emb_path=emb_path,
+        audio_emb_path=audio_emb_path,
+        text_emb_path=text_emb_path,
         batch_size=batch_size
     )   
 
@@ -75,8 +104,8 @@ def main():
     print(f"Test batches: {len(test_loader)}")
 
     # Initialize models
-    gen = Generator().to(device)
-    disc = Discriminator().to(device)
+    gen = Generator(embedding_dim=512, num_embeddings=2).to(device)
+    disc = Discriminator(embedding_dim=512, num_embeddings=2).to(device)
 
     # Optimizers (Adam)
     learning_rate = 0.0002
@@ -173,17 +202,20 @@ def main():
                 # Use test_df ordering to get track ids
                 sample_ids = [str(x) for x in test_df['deezer_id'].tolist()]
                 # Build embedding tensor batch
-                emb_list = []
+                sample_pairs = []
                 for tid in sample_ids:
-                    if tid in all_embeddings:
-                        emb = all_embeddings[tid]
-                    else:
-                        # fallback: try int key
-                        emb = all_embeddings.get(int(tid))
-                    emb_list.append(emb)
+                    emb = combine_embeddings(tid)
+                    if emb is not None:
+                        sample_pairs.append((tid, emb))
 
+                if not sample_pairs:
+                    raise RuntimeError("No matching audio/text embeddings found for the test samples.")
+
+                sample_ids = [tid for tid, _ in sample_pairs]
+                emb_list = [emb for _, emb in sample_pairs]
                 emb_batch = torch.stack(emb_list).to(device)
                 fake_images = gen(emb_batch)
+                fake_images = resize_image_tensor(fake_images, size=sample_image_size)
 
                 # Save each generated image named with track_id and epoch
                 for i, tid in enumerate(sample_ids):
@@ -207,4 +239,4 @@ def main():
                 print(f"Saved checkpoint: {ckpt_path}")
 
 if __name__ == "__main__":
-    main()
+    train()
