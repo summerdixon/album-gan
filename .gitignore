@@ -4,6 +4,7 @@
 *.mp3
 *.jpg
 *.jpeg
+*.png
 *.csv
 data/
 audio/
