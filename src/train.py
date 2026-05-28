@@ -9,6 +9,7 @@ import os
 from data import build_genre_to_idx, get_dataloader
 from torchvision.utils import make_grid, save_image
 from model import Generator, Discriminator
+from utils import normalize_embedding, resize_image_tensor
 
 def train():
 
@@ -32,15 +33,35 @@ def train():
     # Data paths
     csv_path = "../data/cleaned_dataset.csv"
     img_dir = "../data/images"
-    emb_path = "../data/embeddings/audio_embeddings.pt"
+    audio_emb_path = "../data/embeddings/audio_embeddings.pt"
     batch_size = 32
 
-    # Load embeddings dict for sampling
-    all_embeddings = torch.load(emb_path)
+    # Load the already-stacked conditioning embeddings for sampling
+    all_audio_embeddings = torch.load(audio_emb_path, map_location="cpu")
+
+    def load_embedding(embedding_dict, track_id):
+        if track_id in embedding_dict:
+            return embedding_dict[track_id]
+
+        try:
+            numeric_track_id = int(track_id)
+        except ValueError:
+            return None
+
+        return embedding_dict.get(numeric_track_id)
+
+    def combine_embeddings(track_id):
+        audio_embedding = load_embedding(all_audio_embeddings, track_id)
+
+        if audio_embedding is None:
+            return None
+
+        return normalize_embedding(audio_embedding)
 
     # Samples output directory
     samples_dir = "../samples"
     os.makedirs(samples_dir, exist_ok=True)
+    sample_image_size = (256, 256)
 
     # Load and split the dataset
     data_frame = pd.read_csv(csv_path)
@@ -64,16 +85,14 @@ def train():
         csv_path="../data/train_dataset.csv",
         img_dir=img_dir,
         emb_path=emb_path,
-        batch_size=batch_size,
-        genre_to_idx=genre_to_idx,
+        batch_size=batch_size
     )
 
     test_loader = get_dataloader(
         csv_path="../data/test_dataset.csv",
         img_dir=img_dir,
         emb_path=emb_path,
-        batch_size=batch_size,
-        genre_to_idx=genre_to_idx,
+        batch_size=batch_size
     )   
 
     print(f"Train batches: {len(train_loader)}")

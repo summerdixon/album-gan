@@ -26,6 +26,9 @@ class Generator(nn.Module):
         )
     def forward(self, audio_embedding, genre_labels):
         batch_size = audio_embedding.size(0)
+        conditioned_embedding = self.conditioning_encoder(audio_embedding)
+        conditioned_embedding = conditioned_embedding.reshape(batch_size, self.conditioning_dim)
+
         noise = torch.randn(batch_size, self.noise_dim, device=audio_embedding.device)
         genre_embedding = self.genre_embedding(genre_labels.long())
         combined_input = torch.cat([audio_embedding, genre_embedding, noise], dim=1)
@@ -34,6 +37,17 @@ class Generator(nn.Module):
 class Discriminator(nn.Module):
     def __init__(self, embedding_dim=512, num_genres=1, genre_dim=32):
         super(Discriminator, self).__init__()
+
+        self.embedding_dim = embedding_dim
+        self.num_embeddings = num_embeddings
+        self.conditioning_dim = embedding_dim * num_embeddings
+
+        self.conditioning_encoder = nn.Sequential(
+            nn.Linear(embedding_dim, embedding_dim),
+            nn.LeakyReLU(0.2),
+            nn.Linear(embedding_dim, embedding_dim),
+            nn.LeakyReLU(0.2),
+        )
 
         self.conv_blocks = nn.Sequential(
             nn.Conv2d(3, 32, kernel_size=4, stride=2, padding=1),

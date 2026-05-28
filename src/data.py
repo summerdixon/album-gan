@@ -4,7 +4,7 @@ import pandas as pd
 from PIL import Image
 from torch.utils.data import Dataset, DataLoader
 import torchvision.transforms as transforms
-
+from utils import normalize_embedding
 
 def build_genre_to_idx(data_frame: pd.DataFrame) -> dict[str, int]:
     genres = sorted(data_frame["genre"].dropna().astype(str).unique().tolist())
@@ -61,7 +61,7 @@ if __name__ == "__main__":
     test_loader = get_dataloader(
         csv_path="../data/cleaned_dataset.csv", 
         img_dir="../data/images", 
-        emb_path="../data/embeddings/audio_embeddings.pt"
+        audio_emb_path="../data/embeddings/audio_embeddings.pt",
     )
     
     # test getting one batch to prove it works
