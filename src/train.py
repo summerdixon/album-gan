@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.nn.functional as F
 from tqdm import tqdm
 from sklearn.model_selection import train_test_split
 import pandas as pd
@@ -15,6 +16,7 @@ def train():
     epochs = 80
     test_interval = 5  # Test every 5 epochs
     test_set_size = 20  # Number of tracks for testing (15-30 range)
+    sample_image_size = (256, 256)
 
     # Device
     if torch.cuda.is_available():
@@ -197,6 +199,12 @@ def train():
                 emb_batch = torch.stack(emb_list).to(device)
                 genre_batch = torch.tensor(genre_idx_list, device=device, dtype=torch.long)
                 fake_images = gen(emb_batch, genre_batch)
+                fake_images = F.interpolate(
+                    fake_images,
+                    size=sample_image_size,
+                    mode="bicubic",
+                    align_corners=False,
+                )
 
                 # Save each generated image named with track_id and epoch
                 for i, tid in enumerate(sample_ids):
